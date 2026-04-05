@@ -48,7 +48,7 @@ async def list_all_alumni(
     admin: AdminUser,
     db: Annotated[AsyncSession, Depends(get_db)],
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=5000),
     department: Optional[str] = None,
     graduation_year: Optional[int] = None,
 ):
