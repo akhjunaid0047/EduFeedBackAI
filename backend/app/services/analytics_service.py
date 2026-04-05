@@ -1,4 +1,7 @@
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.analytics import (
@@ -20,9 +23,10 @@ async def trigger_analytics_run(db: AsyncSession, user_id) -> AnalyticsRun:
 
     try:
         from app.core.celery_app import celery_app
-        celery_app.send_task("nlp_engine.tasks.run_full_analytics", args=[str(run.id)])
+        result = celery_app.send_task("nlp_engine.tasks.run_full_analytics", args=[str(run.id)])
+        logger.info("Dispatched run_full_analytics task: %s for run %s", result.id, run.id)
     except Exception:
-        pass
+        logger.exception("Failed to dispatch run_full_analytics task for run %s", run.id)
 
     return run
 

@@ -1,9 +1,12 @@
+import logging
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.alumni import Alumni
 from app.schemas.alumni import AlumniSurveyCreate, AlumniSurveyUpdate
 from fastapi import HTTPException, status
-import uuid
+
+logger = logging.getLogger(__name__)
 
 
 async def submit_survey(db: AsyncSession, user_id, data: AlumniSurveyCreate) -> Alumni:
@@ -19,9 +22,10 @@ async def submit_survey(db: AsyncSession, user_id, data: AlumniSurveyCreate) -> 
     # Trigger skill extraction
     try:
         from app.core.celery_app import celery_app
-        celery_app.send_task("nlp_engine.tasks.extract_skills", args=[str(alumni.id)])
+        result = celery_app.send_task("nlp_engine.tasks.extract_skills", args=[str(alumni.id)])
+        logger.info("Dispatched extract_skills task: %s for alumni %s", result.id, alumni.id)
     except Exception:
-        pass  # Non-critical; worker may not be running in dev
+        logger.exception("Failed to dispatch extract_skills task for alumni %s", alumni.id)
 
     return alumni
 
@@ -40,9 +44,10 @@ async def update_survey(db: AsyncSession, user_id, data: AlumniSurveyUpdate) -> 
 
     try:
         from app.core.celery_app import celery_app
-        celery_app.send_task("nlp_engine.tasks.extract_skills", args=[str(alumni.id)])
+        result = celery_app.send_task("nlp_engine.tasks.extract_skills", args=[str(alumni.id)])
+        logger.info("Dispatched extract_skills task: %s for alumni %s", result.id, alumni.id)
     except Exception:
-        pass
+        logger.exception("Failed to dispatch extract_skills task for alumni %s", alumni.id)
 
     return alumni
 

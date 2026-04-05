@@ -1,12 +1,15 @@
 import uuid
 import json
 import os
+import logging
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.course import SyllabusRevision, SyllabusDocument
 from app.core.config import settings
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 async def trigger_revision(db: AsyncSession, syllabus_id, user_id) -> SyllabusRevision:
@@ -30,12 +33,13 @@ async def trigger_revision(db: AsyncSession, syllabus_id, user_id) -> SyllabusRe
 
     try:
         from app.core.celery_app import celery_app
-        celery_app.send_task(
+        result = celery_app.send_task(
             "nlp_engine.tasks.run_syllabus_revision",
             args=[str(revision.id), str(syllabus_id)],
         )
+        logger.info("Dispatched run_syllabus_revision task: %s for revision %s", result.id, revision.id)
     except Exception:
-        pass
+        logger.exception("Failed to dispatch run_syllabus_revision task for revision %s", revision.id)
 
     return revision
 

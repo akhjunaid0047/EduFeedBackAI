@@ -1,11 +1,14 @@
 import os
 import uuid
 import shutil
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, UploadFile
 from app.models.course import SyllabusDocument
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def upload_syllabus(
@@ -44,9 +47,10 @@ async def trigger_parse(db: AsyncSession, syllabus_id) -> SyllabusDocument:
 
     try:
         from app.core.celery_app import celery_app
-        celery_app.send_task("nlp_engine.tasks.parse_syllabus", args=[str(syllabus_id)])
+        result = celery_app.send_task("nlp_engine.tasks.parse_syllabus", args=[str(syllabus_id)])
+        logger.info("Dispatched parse_syllabus task: %s for syllabus %s", result.id, syllabus_id)
     except Exception:
-        pass
+        logger.exception("Failed to dispatch parse_syllabus task for syllabus %s", syllabus_id)
 
     return doc
 

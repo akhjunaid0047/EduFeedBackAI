@@ -1,12 +1,22 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { useState } from "react";
 
 export default function CoursesPage() {
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [courseCode, setCourseCode] = useState("");
+  const [courseName, setCourseName] = useState("");
+  const [semester, setSemester] = useState("");
+  const [credits, setCredits] = useState("");
+
   const { data: courses, isLoading: loadingCourses } = useQuery({
     queryKey: ["courses"],
     queryFn: () => api.get("/api/v1/courses").then((r) => r.data),
@@ -17,6 +27,28 @@ export default function CoursesPage() {
     queryFn: () => api.get("/api/v1/analytics/relevance").then((r) => r.data),
   });
 
+  const addCourseMutation = useMutation({
+    mutationFn: (newCourse: any) => api.post("/api/v1/courses", newCourse).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+      setIsModalOpen(false);
+      setCourseCode("");
+      setCourseName("");
+      setSemester("");
+      setCredits("");
+    },
+  });
+
+  const handleAddCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    addCourseMutation.mutate({
+      course_code: courseCode,
+      course_name: courseName,
+      semester: semester ? parseInt(semester) : null,
+      credits: credits ? parseInt(credits) : null,
+    });
+  };
+
   if (loadingCourses) return <LoadingSpinner />;
 
   const scoreMap = new Map(
@@ -25,7 +57,53 @@ export default function CoursesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Courses</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Courses</h1>
+        <Button onClick={() => setIsModalOpen(true)}>Add Course</Button>
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add New Course</h2>
+            <form onSubmit={handleAddCourse} className="space-y-4">
+              <Input
+                label="Course Code"
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value)}
+                required
+              />
+              <Input
+                label="Course Name"
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
+                required
+              />
+              <Input
+                label="Semester"
+                type="number"
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+              />
+              <Input
+                label="Credits"
+                type="number"
+                value={credits}
+                onChange={(e) => setCredits(e.target.value)}
+              />
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={addCourseMutation.isPending}>
+                  Save Course
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {(!courses || courses.length === 0) ? (
         <Card>
           <p className="text-center text-gray-500 py-8">No courses found. Add courses to get started.</p>
