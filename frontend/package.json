@@ -1,0 +1,33 @@
+{
+  "name": "edufeedback-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8",
+    "autoprefixer": "^10",
+    "axios": "^1.7.0",
+    "@tanstack/react-query": "^5.40.0",
+    "recharts": "^2.12.0",
+    "react-hook-form": "^7.51.0",
+    "zod": "^3.23.0",
+    "@hookform/resolvers": "^3.6.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.390.0",
+    "js-cookie": "^3.0.5",
+    "@types/js-cookie": "^3.0.6"
+  }
+}
