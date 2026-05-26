@@ -8,6 +8,7 @@ from app.models.analytics import (
     AnalyticsRun, AnalyticsRunStatusEnum, SkillGapResult,
     CourseRelevanceScore, CurriculumRecommendation, RecommendationStatusEnum
 )
+from app.models.course import Course
 from fastapi import HTTPException
 
 
@@ -40,13 +41,32 @@ async def get_run_status(db: AsyncSession, run_id) -> AnalyticsRun:
 
 
 async def get_skill_gaps(db: AsyncSession, course_id=None, gap_flag=None):
-    query = select(SkillGapResult)
+    query = (
+        select(SkillGapResult, Course.course_code, Course.course_name)
+        .join(Course, Course.id == SkillGapResult.course_id)
+    )
     if course_id:
         query = query.where(SkillGapResult.course_id == course_id)
     if gap_flag is not None:
         query = query.where(SkillGapResult.gap_flag == gap_flag)
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = []
+    for gap, code, name in result.all():
+        rows.append({
+            "id": gap.id,
+            "course_id": gap.course_id,
+            "course_code": code,
+            "course_name": name,
+            "skill_name": gap.skill_name,
+            "skill_category": gap.skill_category,
+            "max_similarity_score": gap.max_similarity_score,
+            "alumni_mention_count": gap.alumni_mention_count,
+            "alumni_mention_pct": gap.alumni_mention_pct,
+            "is_post_grad_skill": gap.is_post_grad_skill,
+            "gap_flag": gap.gap_flag,
+            "computed_at": gap.computed_at,
+        })
+    return rows
 
 
 async def get_relevance_scores(db: AsyncSession, course_id=None):

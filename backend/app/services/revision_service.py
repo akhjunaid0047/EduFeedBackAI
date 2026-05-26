@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from app.models.course import SyllabusRevision, SyllabusDocument
 from app.core.config import settings
 from fastapi import HTTPException
@@ -82,6 +83,7 @@ async def update_change_status(db: AsyncSession, revision_id, change_id: str, ne
     accepted = sum(1 for c in changes if c.get("status") == "ACCEPTED")
     rejected = sum(1 for c in changes if c.get("status") == "REJECTED")
     rev.diff_data = diff
+    flag_modified(rev, "diff_data")
     rev.applied_changes_count = accepted
     rev.rejected_changes_count = rejected
     await db.commit()

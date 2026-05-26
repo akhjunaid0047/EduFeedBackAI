@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import api from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
+import { Download, FileText, Sheet, GraduationCap } from "lucide-react";
 
-async function downloadFile(url: string, filename: string, responseType: "blob" = "blob") {
-  const res = await api.get(url, { responseType });
+async function downloadFile(url: string, filename: string) {
+  const res = await api.get(url, { responseType: "blob" });
   const blob = new Blob([res.data]);
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
@@ -24,73 +26,107 @@ export default function ReportsPage() {
     queryFn: () => api.get("/api/v1/courses").then((r) => r.data),
   });
 
-  const handleDownload = async (key: string, url: string, filename: string) => {
+  const handle = async (key: string, url: string, filename: string) => {
     setDownloading(key);
-    try {
-      await downloadFile(url, filename);
-    } catch (e) {
-      alert("Download failed. Make sure analytics has been run.");
-    } finally {
-      setDownloading(null);
-    }
+    try { await downloadFile(url, filename); }
+    catch { alert("Download failed. Make sure analytics has been run."); }
+    finally { setDownloading(null); }
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Reports & Exports</h1>
-      <div className="grid grid-cols-2 gap-4">
-        <Card title="Full Analytics Report (PDF)">
-          <p className="text-sm text-gray-500 mb-4">Complete analytics report including skill gaps, relevance scores, and recommendations.</p>
-          <Button
-            loading={downloading === "full-pdf"}
-            onClick={() => handleDownload("full-pdf", "/api/v1/reports/pdf", "edufeedback_report.pdf")}
-          >
-            Download PDF
-          </Button>
-        </Card>
+    <div className="page page-wide">
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Curriculum · reports</span>
+          <h1 className="serif">Export the work, anywhere.</h1>
+          <p className="lede">
+            Four ready-to-go formats. Everything is regenerated against the latest analytics run.
+          </p>
+        </div>
+      </div>
 
-        <Card title="Per-Course PDF Report">
-          <div className="mb-4">
-            <select
-              className="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
+      <div className="reports-grid">
+        <Card padded className="report-card">
+          <div className="report-card-icon"><FileText size={22} /></div>
+          <h3 className="serif report-card-title">Full curriculum report</h3>
+          <p className="report-card-sub">
+            Every course, every chart, every recommendation. The artefact you hand to the
+            curriculum committee.
+          </p>
+          <div className="report-card-foot">
+            <span className="mono report-card-meta">PDF · last generated today</span>
+            <Button
+              icon={<Download size={14} />}
+              loading={downloading === "full-pdf"}
+              onClick={() => handle("full-pdf", "/api/v1/reports/pdf", "edufeedback_report.pdf")}
             >
-              <option value="">Select a course…</option>
-              {(courses || []).map((c: any) => (
-                <option key={c.id} value={c.id}>{c.course_code} — {c.course_name}</option>
-              ))}
-            </select>
+              Generate PDF
+            </Button>
           </div>
-          <Button
-            loading={downloading === "course-pdf"}
-            disabled={!selectedCourse}
-            onClick={() => handleDownload("course-pdf", `/api/v1/reports/pdf/${selectedCourse}`, `course_${selectedCourse}_report.pdf`)}
-          >
-            Download Course PDF
-          </Button>
         </Card>
 
-        <Card title="Excel Export">
-          <p className="text-sm text-gray-500 mb-4">Raw analytics data: skill gaps, relevance scores, and recommendations in Excel format.</p>
-          <Button
-            variant="secondary"
-            loading={downloading === "excel"}
-            onClick={() => handleDownload("excel", "/api/v1/reports/excel", "edufeedback_analytics.xlsx")}
-          >
-            Download Excel
-          </Button>
+        <Card padded className="report-card">
+          <div className="report-card-icon"><FileText size={22} /></div>
+          <h3 className="serif report-card-title">Per-course report</h3>
+          <p className="report-card-sub">
+            Pick one course. We'll generate a focused PDF — relevance score, skill matrix,
+            alumni quotes, proposed deltas.
+          </p>
+          <Select
+            label="Choose a course"
+            placeholder="Select a course"
+            options={(courses || []).map((c: any) => ({ value: c.id, label: `${c.course_code} · ${c.course_name}` }))}
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+          />
+          <div className="report-card-foot">
+            <span className="mono report-card-meta">PDF · ~6 pages per course</span>
+            <Button
+              icon={<Download size={14} />}
+              disabled={!selectedCourse}
+              loading={downloading === "course-pdf"}
+              onClick={() => handle("course-pdf", `/api/v1/reports/pdf/${selectedCourse}`, `course_${selectedCourse}_report.pdf`)}
+            >
+              Generate PDF
+            </Button>
+          </div>
         </Card>
 
-        <Card title="NAAC/NBA Summary">
-          <p className="text-sm text-gray-500 mb-4">Formatted summary suitable for NAAC/NBA accreditation reporting.</p>
-          <Button
-            variant="secondary"
-            loading={downloading === "naac"}
-            onClick={() => handleDownload("naac", "/api/v1/reports/naac", "naac_summary.pdf")}
-          >
-            Download NAAC Summary
-          </Button>
+        <Card padded className="report-card">
+          <div className="report-card-icon"><Sheet size={22} /></div>
+          <h3 className="serif report-card-title">Excel export</h3>
+          <p className="report-card-sub">
+            Raw data behind every chart. Every alumni response, every parsed skill, every proposed change.
+          </p>
+          <div className="report-card-foot">
+            <span className="mono report-card-meta">XLSX</span>
+            <Button
+              icon={<Download size={14} />}
+              loading={downloading === "excel"}
+              onClick={() => handle("excel", "/api/v1/reports/excel", "edufeedback_analytics.xlsx")}
+            >
+              Download Excel
+            </Button>
+          </div>
+        </Card>
+
+        <Card padded className="report-card">
+          <div className="report-card-icon"><GraduationCap size={22} /></div>
+          <h3 className="serif report-card-title">NAAC / NBA summary</h3>
+          <p className="report-card-sub">
+            Pre-formatted to the NAAC SSR and NBA Tier-1 templates. Employability rate, attainment
+            averages, action-taken table.
+          </p>
+          <div className="report-card-foot">
+            <span className="mono report-card-meta">PDF · NAAC v2.1 + NBA Tier-1</span>
+            <Button
+              icon={<Download size={14} />}
+              loading={downloading === "naac"}
+              onClick={() => handle("naac", "/api/v1/reports/naac", "naac_summary.pdf")}
+            >
+              Generate summary
+            </Button>
+          </div>
         </Card>
       </div>
     </div>

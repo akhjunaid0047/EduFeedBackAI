@@ -4,20 +4,31 @@ import { clsx } from "clsx";
 interface CardProps {
   title?: string;
   subtitle?: string;
+  actions?: ReactNode;
+  /** Add body padding (default true). Set false for tables / dense lists. */
+  padded?: boolean;
+  elevated?: boolean;
   children: ReactNode;
   className?: string;
+  footer?: ReactNode;
 }
 
-export function Card({ title, subtitle, children, className }: CardProps) {
+export function Card({
+  title, subtitle, actions, padded = true, elevated, children, className, footer,
+}: CardProps) {
   return (
-    <div className={clsx("bg-white rounded-xl border border-gray-200 shadow-sm", className)}>
-      {(title || subtitle) && (
-        <div className="px-6 py-4 border-b border-gray-100">
-          {title && <h3 className="text-base font-semibold text-gray-900">{title}</h3>}
-          {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
-        </div>
+    <section className={clsx("card", elevated && "card-elev", className)}>
+      {(title || subtitle || actions) && (
+        <header className="card-head">
+          <div>
+            {title && <h3 className="card-title">{title}</h3>}
+            {subtitle && <p className="card-sub">{subtitle}</p>}
+          </div>
+          {actions && <div className="card-actions">{actions}</div>}
+        </header>
       )}
-      <div className="p-6">{children}</div>
-    </div>
+      <div className={padded ? "card-body" : "card-flush"}>{children}</div>
+      {footer && <footer className="card-foot">{footer}</footer>}
+    </section>
   );
 }

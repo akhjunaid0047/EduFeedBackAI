@@ -55,6 +55,13 @@ async def trigger_parse(db: AsyncSession, syllabus_id) -> SyllabusDocument:
     return doc
 
 
+async def list_all_syllabi(db: AsyncSession) -> list[SyllabusDocument]:
+    result = await db.execute(
+        select(SyllabusDocument).order_by(SyllabusDocument.uploaded_at.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def get_syllabus_by_course(db: AsyncSession, course_id) -> SyllabusDocument | None:
     result = await db.execute(
         select(SyllabusDocument)

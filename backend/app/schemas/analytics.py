@@ -24,6 +24,8 @@ class AnalyticsRunResponse(BaseModel):
 class SkillGapResponse(BaseModel):
     id: UUID
     course_id: UUID
+    course_code: Optional[str] = None
+    course_name: Optional[str] = None
     skill_name: str
     skill_category: Optional[str]
     max_similarity_score: Optional[float]

@@ -2,57 +2,109 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { clsx } from "clsx";
-import { ReactNode } from "react";
-import { logout } from "@/lib/auth";
-import { LogOut } from "lucide-react";
+import { ReactNode, useEffect, useState } from "react";
+import { logout, getTokenPayload } from "@/lib/auth";
+import { ChevronDown, LogOut } from "lucide-react";
 
 export interface NavItem {
   href: string;
   label: string;
-  icon?: ReactNode;
+  icon: ReactNode;
+  badge?: string | number;
+}
+export interface NavGroup {
+  title?: string;
+  items: NavItem[];
 }
 
 interface SidebarProps {
-  navItems: NavItem[];
-  title?: string;
+  groups: NavGroup[];
 }
 
-export function Sidebar({ navItems, title = "EduFeedback AI" }: SidebarProps) {
+function Logomark({ size = 26 }: { size?: number }) {
+  // Two stacked rhombi — exactly the design's logomark.
+  return (
+    <span className="logomark" style={{ width: size, height: size, position: "relative", display: "inline-block" }}>
+      <span className="logomark-a" />
+      <span className="logomark-b" />
+    </span>
+  );
+}
+
+function BrandLockup() {
+  return (
+    <div className="brand-lockup">
+      <Logomark size={26} />
+      <div className="brand-text">
+        <span className="brand-name serif">EduFeedback <em>AI</em></span>
+        <span className="brand-tag mono">curriculum intelligence</span>
+      </div>
+    </div>
+  );
+}
+
+export function Sidebar({ groups }: SidebarProps) {
   const pathname = usePathname();
+  const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
+
+  useEffect(() => {
+    const p = getTokenPayload();
+    setUserEmail(p?.email || "guest@institution.edu");
+    setUserRole(p?.role || "guest");
+  }, [pathname]);
+
+  const initials = (userEmail.split("@")[0] || "u").slice(0, 2).toUpperCase();
+  const roleLabel =
+    userRole === "alumni" ? "Alumni" :
+    userRole === "faculty" ? "Faculty" :
+    userRole === "superadmin" ? "Super-admin" :
+    userRole === "admin" ? "Administrator" : "Guest";
 
   return (
-    <aside className="w-64 min-h-screen bg-slate-900 text-white flex flex-col">
-      <div className="px-6 py-5 border-b border-slate-700">
-        <span className="text-lg font-bold tracking-tight">{title}</span>
+    <aside className="sidenav">
+      <div className="sidenav-brand">
+        <BrandLockup />
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white",
-              )}
-            >
-              {item.icon && <span className="w-5 h-5 shrink-0">{item.icon}</span>}
-              {item.label}
-            </Link>
-          );
-        })}
+
+      <nav className="sidenav-body scroll">
+        {groups.map((group, gi) => (
+          <div key={gi} className="sidenav-group">
+            {group.title && <span className="sidenav-title">{group.title}</span>}
+            {group.items.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`sidenav-item ${isActive ? "is-active" : ""}`}
+                >
+                  <span style={{ width: 17, height: 17, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                    {item.icon}
+                  </span>
+                  <span className="sidenav-label">{item.label}</span>
+                  {item.badge != null && <span className="sidenav-badge">{item.badge}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-      <div className="px-3 py-4 border-t border-slate-700">
-        <button
-          onClick={logout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
+
+      <div className="sidenav-foot">
+        <div className="sidenav-user">
+          <div className="sidenav-avatar">{initials}</div>
+          <div className="sidenav-user-meta">
+            <span className="sidenav-user-name">{userEmail}</span>
+            <button className="sidenav-role" type="button">
+              {roleLabel}
+              <ChevronDown size={11} />
+            </button>
+          </div>
+        </div>
+        <button className="sidenav-signout" onClick={logout} type="button">
+          <LogOut size={15} />
+          <span>Sign out</span>
         </button>
       </div>
     </aside>

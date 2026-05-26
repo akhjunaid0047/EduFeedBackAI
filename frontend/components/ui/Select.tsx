@@ -1,42 +1,50 @@
 import { SelectHTMLAttributes, forwardRef } from "react";
 import { clsx } from "clsx";
+import { ChevronDown } from "lucide-react";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  hint?: string;
+  options: { value: string; label: string }[] | string[];
   placeholder?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, options, placeholder, className, id, ...props }, ref) => {
+  ({ label, error, hint, options, placeholder, className, id, ...props }, ref) => {
     const selectId = id || label?.toLowerCase().replace(/\s+/g, "-");
+    const opts = (options as any[]).map((o) =>
+      typeof o === "string" ? { value: o, label: o } : o
+    ) as { value: string; label: string }[];
+
     return (
-      <div className="flex flex-col gap-1">
+      <div className="field">
         {label && (
-          <label htmlFor={selectId} className="text-sm font-medium text-gray-700">
-            {label}
-          </label>
+          <div className="field-label">
+            <label htmlFor={selectId} className="field-label-text">
+              {label}{props.required && <span className="req">*</span>}
+            </label>
+          </div>
         )}
-        <select
-          ref={ref}
-          id={selectId}
-          className={clsx(
-            "block w-full rounded-lg border px-3 py-2 text-sm shadow-sm bg-white",
-            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
-            error ? "border-red-400" : "border-gray-300",
-            className,
-          )}
-          {...props}
-        >
-          {placeholder && <option value="">{placeholder}</option>}
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        <span className={clsx("input-wrap", error && "is-error")} style={{ position: "relative" }}>
+          <select
+            ref={ref}
+            id={selectId}
+            className={clsx("input select", className)}
+            {...props}
+          >
+            {placeholder && <option value="">{placeholder}</option>}
+            {opts.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown
+            size={14}
+            style={{ position: "absolute", right: 10, color: "var(--ink-3)", pointerEvents: "none" }}
+          />
+        </span>
+        {error && <span className="field-error">{error}</span>}
+        {!error && hint && <span className="field-hint">{hint}</span>}
       </div>
     );
   }

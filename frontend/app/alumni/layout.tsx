@@ -1,17 +1,29 @@
-import { Sidebar } from "@/components/layout/Sidebar";
-import { LayoutDashboard, FileText, RefreshCw } from "lucide-react";
+"use client";
 
-const navItems = [
-  { href: "/alumni/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-  { href: "/alumni/survey", label: "Career Survey", icon: <FileText size={18} /> },
-  { href: "/alumni/update", label: "Update Profile", icon: <RefreshCw size={18} /> },
+import { usePathname } from "next/navigation";
+import { Shell } from "@/components/layout/Shell";
+import { NavGroup } from "@/components/layout/Sidebar";
+import { Home, ClipboardList, Edit } from "lucide-react";
+
+const groups: NavGroup[] = [
+  {
+    title: "Alumni",
+    items: [
+      { href: "/alumni/dashboard", label: "Dashboard",      icon: <Home size={17} strokeWidth={1.6} /> },
+      { href: "/alumni/survey",    label: "Career survey",  icon: <ClipboardList size={17} strokeWidth={1.6} /> },
+      { href: "/alumni/update",    label: "Update profile", icon: <Edit size={17} strokeWidth={1.6} /> },
+    ],
+  },
 ];
 
+const labels: Record<string, string[]> = {
+  "/alumni/dashboard": ["Dashboard"],
+  "/alumni/survey":    ["Career survey"],
+  "/alumni/update":    ["Update profile"],
+};
+
 export default function AlumniLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar navItems={navItems} title="Alumni Portal" />
-      <main className="flex-1 bg-slate-50 p-8 overflow-auto">{children}</main>
-    </div>
-  );
+  const pathname = usePathname();
+  const crumbs = ["Alumni portal", ...(labels[pathname] || ["—"])];
+  return <Shell groups={groups} crumbs={crumbs}>{children}</Shell>;
 }

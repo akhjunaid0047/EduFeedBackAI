@@ -1,29 +1,30 @@
 import { clsx } from "clsx";
+import { ReactNode } from "react";
 
 interface BadgeProps {
-  children: React.ReactNode;
-  color?: "green" | "red" | "orange" | "blue" | "gray" | "purple";
+  children: ReactNode;
+  tone?: "green" | "red" | "orange" | "blue" | "gray" | "purple" | "accent" | "ok" | "warn" | "danger" | "info";
+  /** Back-compat: same as `tone`. */
+  color?: "green" | "red" | "orange" | "blue" | "gray" | "purple" | "accent";
   size?: "sm" | "md";
+  solid?: boolean;
+  dot?: boolean;
+  /** Reserved for icon prop (not yet wired) */
+  icon?: string;
 }
 
-const colorClasses = {
-  green: "bg-green-100 text-green-800",
-  red: "bg-red-100 text-red-800",
-  orange: "bg-orange-100 text-orange-800",
-  blue: "bg-blue-100 text-blue-800",
-  gray: "bg-gray-100 text-gray-700",
-  purple: "bg-purple-100 text-purple-800",
-};
-
-export function Badge({ children, color = "gray", size = "sm" }: BadgeProps) {
+export function Badge({ children, tone, color, size = "md", solid = false, dot = false }: BadgeProps) {
+  const t = tone || color || "gray";
   return (
     <span
       className={clsx(
-        "inline-flex items-center font-medium rounded-full",
-        size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm",
-        colorClasses[color],
+        "badge",
+        size === "sm" && "badge-sm",
+        solid ? "badge-solid" : "badge-soft",
+        `badge-${t}`,
       )}
     >
+      {dot && <span className="badge-dot" />}
       {children}
     </span>
   );

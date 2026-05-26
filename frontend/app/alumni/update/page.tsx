@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, forwardRef } from "react";
 import api from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-const Textarea = ({ label, ...props }: any) => (
-  <div className="flex flex-col gap-1">
-    {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-    <textarea className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" rows={3} {...props} />
+const Textarea = forwardRef<HTMLTextAreaElement, any>(({ label, ...props }, ref) => (
+  <div className="field">
+    {label && <div className="field-label"><span>{label}</span></div>}
+    <textarea ref={ref} className="textarea" {...props} />
   </div>
-);
+));
+Textarea.displayName = "Textarea";
 
 export default function AlumniUpdatePage() {
   const queryClient = useQueryClient();
@@ -26,10 +27,7 @@ export default function AlumniUpdatePage() {
   });
 
   const { register, handleSubmit, reset } = useForm();
-
-  useEffect(() => {
-    if (profile) reset(profile);
-  }, [profile, reset]);
+  useEffect(() => { if (profile) reset(profile); }, [profile, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: any) => api.put("/api/v1/alumni/survey", data),
@@ -40,25 +38,49 @@ export default function AlumniUpdatePage() {
     },
   });
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <div className="page page-narrow"><LoadingSpinner /></div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Update Profile</h1>
-      {success && <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">Profile updated successfully!</div>}
-      <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
-        <Card title="Career Update">
-          <div className="space-y-4">
-            <Select label="Employment Status" options={[{value:"Employed",label:"Employed"},{value:"Higher Studies",label:"Higher Studies"},{value:"Unemployed",label:"Unemployed"},{value:"Self-employed",label:"Self-employed"},{value:"Freelance",label:"Freelance"}]} {...register("employment_status")} />
-            <Input label="Job Role / Designation" {...register("job_role_designation")} />
-            <Input label="Company / Organization" {...register("company_name")} />
-            <Input label="Industry Domain" {...register("industry_domain")} />
-            <Textarea label="Skills acquired after graduation" {...register("skills_acquired_after_graduation")} />
-            <Textarea label="New certifications" {...register("certifications_completed")} />
-            <Input label="Career Growth Satisfaction (1–5)" type="number" min={1} max={5} {...register("career_growth_satisfaction")} />
+    <div className="page page-narrow">
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Alumni · update profile</span>
+          <h1 className="serif">Amend the record.</h1>
+          <p className="lede">
+            Should circumstances have shifted since your last reply, set them down here.
+          </p>
+        </div>
+      </div>
+
+      {success && (
+        <div style={{
+          borderLeft: "2px solid var(--ok)",
+          background: "var(--ok-soft)",
+          padding: "10px 14px",
+          borderRadius: 4,
+          marginBottom: 14,
+        }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ok)" }}>Profile updated.</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit((data) => mutation.mutate(data))}>
+        <Card padded title="Career update" subtitle="Latest employment, skills, certifications">
+          <div className="form-grid">
+            <Select label="Employment status" {...register("employment_status")}
+              options={["Employed", "Higher Studies", "Unemployed", "Self-employed", "Freelance"]} />
+            <Input label="Designation" {...register("job_role_designation")} />
+            <Input label="Company" {...register("company_name")} />
+            <Input label="Industry" {...register("industry_domain")} />
+            <div className="field-span-2"><Textarea label="Skills acquired since graduation" {...register("skills_acquired_after_graduation")} /></div>
+            <div className="field-span-2"><Textarea label="New certifications" {...register("certifications_completed")} /></div>
+            <Input label="Career-growth satisfaction (1–5)" type="number" min={1} max={5} {...register("career_growth_satisfaction")} />
           </div>
         </Card>
-        <Button type="submit" loading={mutation.isPending} className="w-full">Save Changes</Button>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+          <Button type="submit" loading={mutation.isPending}>Save changes</Button>
+        </div>
       </form>
     </div>
   );

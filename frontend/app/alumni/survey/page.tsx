@@ -9,12 +9,14 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ProgressBar } from "@/components/ui/Stat";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 
 const schema = z.object({
   gender: z.string().optional(),
   degree_program: z.string().optional(),
   department: z.string().optional(),
-  graduation_year: z.preprocess(v => (v === "" || v === null || v === undefined) ? undefined : Number(v), z.number().optional()),
+  graduation_year: z.preprocess((v) => (v === "" || v == null) ? undefined : Number(v), z.number().optional()),
   employment_status: z.string().optional(),
   job_role_designation: z.string().optional(),
   company_name: z.string().optional(),
@@ -23,14 +25,14 @@ const schema = z.object({
   job_responsibilities: z.string().optional(),
   tools_software: z.string().optional(),
   skills_helped_land_job: z.string().optional(),
-  course_relevance_rating: z.preprocess(v => (v === "" || v === null || v === undefined) ? undefined : Number(v), z.number().min(1).max(5).optional()),
+  course_relevance_rating: z.preprocess((v) => (v === "" || v == null) ? undefined : Number(v), z.number().min(1).max(5).optional()),
   unused_subjects: z.string().optional(),
   skills_missing_from_curriculum: z.string().optional(),
-  has_changed_jobs: z.union([z.boolean(), z.enum(["true", "false"]).transform(v => v === "true")]).optional(),
+  has_changed_jobs: z.union([z.boolean(), z.enum(["true", "false"]).transform((v) => v === "true")]).optional(),
   previous_designations: z.string().optional(),
   skills_acquired_after_graduation: z.string().optional(),
   certifications_completed: z.string().optional(),
-  career_growth_satisfaction: z.preprocess(v => (v === "" || v === null || v === undefined) ? undefined : Number(v), z.number().min(1).max(5).optional()),
+  career_growth_satisfaction: z.preprocess((v) => (v === "" || v == null) ? undefined : Number(v), z.number().min(1).max(5).optional()),
   placement_preparation: z.string().optional(),
   helpful_platforms: z.string().optional(),
   placement_training_helped: z.string().optional(),
@@ -39,34 +41,42 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const Textarea = forwardRef<HTMLTextAreaElement, any>(({ label, error, ...props }, ref) => (
-  <div className="flex flex-col gap-1">
-    {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-    <textarea
-      ref={ref}
-      className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${error ? "border-red-400" : "border-gray-300"}`}
-      rows={3}
-      {...props}
-    />
-    {error && <p className="text-xs text-red-600">{error}</p>}
+const Textarea = forwardRef<HTMLTextAreaElement, any>(({ label, hint, ...props }, ref) => (
+  <div className="field">
+    {label && <div className="field-label"><span>{label}</span></div>}
+    <textarea ref={ref} className="textarea" {...props} />
+    {hint && <span className="field-hint">{hint}</span>}
   </div>
 ));
 Textarea.displayName = "Textarea";
 
+const SECTIONS = [
+  { id: 0, title: "Background",      sub: "About your time at the institute." },
+  { id: 1, title: "Employment",      sub: "What you do today." },
+  { id: 2, title: "Role detail",     sub: "Tools, responsibilities, and what got you hired." },
+  { id: 3, title: "Curriculum fit",  sub: "What worked, what didn't." },
+  { id: 4, title: "Progression",     sub: "How your career has evolved." },
+  { id: 5, title: "Placement",       sub: "Reflections on getting placed." },
+];
+
 export default function AlumniSurveyPage() {
+  const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, trigger, formState: { isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+
+  const next = async () => {
+    const ok = await trigger();
+    if (ok) setStep((s) => Math.min(SECTIONS.length - 1, s + 1));
+  };
+  const prev = () => setStep((s) => Math.max(0, s - 1));
 
   const onSubmit = async (data: FormData) => {
     setError("");
     try {
-      // Strip empty strings so optional fields are omitted (backend expects null, not "")
-      const payload = Object.fromEntries(
-        Object.entries(data).filter(([, v]) => v !== "" && v !== undefined)
-      );
+      const payload = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== "" && v !== undefined));
       await api.post("/api/v1/alumni/survey", payload);
       setSuccess(true);
     } catch (err: any) {
@@ -76,83 +86,177 @@ export default function AlumniSurveyPage() {
 
   if (success) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-16">
-        <div className="text-green-600 text-5xl mb-4">✓</div>
-        <h2 className="text-xl font-semibold text-gray-900">Survey Submitted!</h2>
-        <p className="text-gray-500 mt-2 text-sm">Thank you for contributing to curriculum improvement.</p>
-        <a href="/alumni/dashboard" className="mt-4 inline-block text-blue-600 hover:underline">← Back to dashboard</a>
+      <div className="page page-narrow">
+        <Card padded>
+          <div className="alumni-empty">
+            <div className="alumni-empty-mark">thank you.</div>
+            <h3 className="serif">Survey submitted.</h3>
+            <p>Your reply is on the rolls. The curriculum committee will see it in the next analytics run.</p>
+            <div className="alumni-empty-actions">
+              <Button onClick={() => (window.location.href = "/alumni/dashboard")}>Back to dashboard</Button>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
 
+  const progress = (step + 1) / SECTIONS.length;
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Career Outcome Survey</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Section A */}
-        <Card title="Section A — Personal & Academic Background">
-          <div className="space-y-4">
-            <Select label="Gender" options={[{value:"Male",label:"Male"},{value:"Female",label:"Female"},{value:"Other",label:"Other"},{value:"Prefer not to say",label:"Prefer not to say"}]} placeholder="Select" {...register("gender")} />
-            <Input label="Degree / Program" {...register("degree_program")} />
-            <Select label="Department" options={[{value:"CSE",label:"CSE"},{value:"IT",label:"IT"},{value:"ECE",label:"ECE"},{value:"ME",label:"ME"},{value:"Civil",label:"Civil"},{value:"Chemical",label:"Chemical"},{value:"Other",label:"Other"}]} placeholder="Select" {...register("department")} />
-            <Input label="Graduation Year" type="number" {...register("graduation_year")} />
-          </div>
-        </Card>
+    <div className="page page-wide survey-page">
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Alumni · career survey</span>
+          <h1 className="serif">Five minutes that shape the syllabus.</h1>
+          <p className="lede">
+            Six short sections. Skip anything you don't want to answer — every reply still helps.
+          </p>
+        </div>
+      </div>
 
-        {/* Section B */}
-        <Card title="Section B — Employment Status & Role">
-          <div className="space-y-4">
-            <Select label="Employment Status" options={[{value:"Employed",label:"Employed"},{value:"Higher Studies",label:"Higher Studies"},{value:"Unemployed",label:"Unemployed"},{value:"Self-employed",label:"Self-employed"},{value:"Freelance",label:"Freelance"}]} placeholder="Select" {...register("employment_status")} />
-            <Input label="Job Role / Designation" {...register("job_role_designation")} />
-            <Input label="Company / Organization" {...register("company_name")} />
-            <Input label="Industry Domain" {...register("industry_domain")} />
-            <Select label="Mode of Work" options={[{value:"Remote",label:"Remote"},{value:"On-site",label:"On-site"},{value:"Hybrid",label:"Hybrid"}]} placeholder="Select" {...register("work_mode")} />
+      <div className="survey-layout">
+        {/* Left rail */}
+        <aside className="survey-rail">
+          <div className="survey-progress-shell">
+            <ProgressBar value={progress} tone="var(--accent)" height={4} />
+            <span className="survey-progress-num mono">
+              Step {step + 1} of {SECTIONS.length} · {Math.round(progress * 100)}%
+            </span>
           </div>
-        </Card>
-
-        {/* Section C */}
-        <Card title="Section C — Role Details">
-          <div className="space-y-4">
-            <Textarea label="Job Responsibilities" {...register("job_responsibilities")} />
-            <Textarea label="Tools / Software used in current role" {...register("tools_software")} />
-            <Textarea label="Skills that helped you land the job" {...register("skills_helped_land_job")} />
+          <ul className="survey-rail-list">
+            {SECTIONS.map((s) => {
+              const cls = s.id === step ? "is-current" : s.id < step ? "is-done" : "";
+              return (
+                <li
+                  key={s.id}
+                  className={`survey-rail-item ${cls}`}
+                  onClick={() => setStep(s.id)}
+                >
+                  <span className="survey-rail-step">
+                    {s.id < step ? <Check size={11} /> : <span className="mono">{s.id + 1}</span>}
+                  </span>
+                  <span className="survey-rail-title">{s.title}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="survey-rail-aside">
+            <span className="eyebrow mono">a note</span>
+            <p>
+              All replies are stored against your account only. The curriculum committee sees
+              <em> aggregated</em> results, never raw individuals.
+            </p>
           </div>
-        </Card>
+        </aside>
 
-        {/* Section D */}
-        <Card title="Section D — Curriculum Relevance">
-          <div className="space-y-4">
-            <Input label="Course Relevance Rating (1–5)" type="number" min={1} max={5} {...register("course_relevance_rating")} />
-            <Textarea label="Subjects you never used in your job" {...register("unused_subjects")} />
-            <Textarea label="Skills you wish were taught during college" {...register("skills_missing_from_curriculum")} />
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="survey-form">
+          <Card padded className="survey-card">
+            <div className="survey-section-head">
+              <span className="eyebrow mono">Section {step + 1}</span>
+              <h2 className="serif">{SECTIONS[step].title}</h2>
+              <p>{SECTIONS[step].sub}</p>
+            </div>
+
+            <div className="form-grid mt-3">
+              {step === 0 && (
+                <>
+                  <Select label="Gender" placeholder="Select" {...register("gender")}
+                    options={[
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                      { value: "Other", label: "Other" },
+                      { value: "Prefer not to say", label: "Prefer not to say" },
+                    ]} />
+                  <Input label="Degree / Programme" {...register("degree_program")} />
+                  <Select label="Department" placeholder="Select" {...register("department")}
+                    options={["CSE", "IT", "ECE", "ME", "Civil", "Chemical", "Other"]} />
+                  <Input label="Graduation year" type="number" {...register("graduation_year")} />
+                </>
+              )}
+
+              {step === 1 && (
+                <>
+                  <Select label="Employment status" placeholder="Select" {...register("employment_status")}
+                    options={["Employed", "Higher Studies", "Unemployed", "Self-employed", "Freelance"]} />
+                  <Input label="Designation" placeholder="e.g. Software Engineer" {...register("job_role_designation")} />
+                  <Input label="Company" {...register("company_name")} />
+                  <Input label="Industry" {...register("industry_domain")} />
+                  <Select label="Mode of work" placeholder="Select" {...register("work_mode")}
+                    options={["Remote", "On-site", "Hybrid"]} />
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <div className="field-span-2"><Textarea label="Day-to-day responsibilities" hint="As you might describe them to a colleague." {...register("job_responsibilities")} /></div>
+                  <div className="field-span-2"><Textarea label="Tools & software employed" {...register("tools_software")} /></div>
+                  <div className="field-span-2"><Textarea label="Skills that helped you land the job" {...register("skills_helped_land_job")} /></div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <Input label="Course-relevance rating (1–5)" type="number" min={1} max={5} {...register("course_relevance_rating")} />
+                  <div className="field-span-2"><Textarea label="Subjects you never used in practice" {...register("unused_subjects")} /></div>
+                  <div className="field-span-2"><Textarea label="Skills you wish were taught" {...register("skills_missing_from_curriculum")} /></div>
+                </>
+              )}
+
+              {step === 4 && (
+                <>
+                  <Select label="Have you changed posts since graduating?" placeholder="Select"
+                    {...register("has_changed_jobs")}
+                    options={[{ value: "true", label: "Yes" }, { value: "false", label: "No" }]} />
+                  <Input label="Career-growth satisfaction (1–5)" type="number" min={1} max={5} {...register("career_growth_satisfaction")} />
+                  <div className="field-span-2"><Textarea label="Previous designations" {...register("previous_designations")} /></div>
+                  <div className="field-span-2"><Textarea label="Skills acquired since graduation" {...register("skills_acquired_after_graduation")} /></div>
+                  <div className="field-span-2"><Textarea label="Certifications completed" {...register("certifications_completed")} /></div>
+                </>
+              )}
+
+              {step === 5 && (
+                <>
+                  <div className="field-span-2"><Textarea label="How did you prepare for placement?" {...register("placement_preparation")} /></div>
+                  <div className="field-span-2"><Textarea label="Most helpful platforms / resources" {...register("helpful_platforms")} /></div>
+                  <Select label="Did placement training help?" placeholder="Select" {...register("placement_training_helped")}
+                    options={["Yes", "Partially", "No"]} />
+                  <div className="field-span-2"><Textarea label="Difficulties faced while searching" {...register("job_search_difficulties")} /></div>
+                  <div className="field-span-2"><Textarea label="Suggestions to improve student job readiness" {...register("suggestions_for_improvement")} /></div>
+                </>
+              )}
+            </div>
+          </Card>
+
+          {error && (
+            <div style={{
+              borderLeft: "2px solid var(--danger)",
+              background: "var(--danger-soft)",
+              padding: "8px 12px",
+              borderRadius: 4,
+            }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--danger)" }}>{error}</p>
+            </div>
+          )}
+
+          <div className="survey-nav">
+            <Button type="button" variant="ghost" onClick={prev} disabled={step === 0} icon={<ChevronLeft size={14} />}>
+              Back
+            </Button>
+            <span className="survey-nav-meta">Step {step + 1} of {SECTIONS.length}</span>
+            {step < SECTIONS.length - 1 ? (
+              <Button type="button" onClick={next} icon={<ChevronRight size={14} />} iconPos="right">
+                Next section
+              </Button>
+            ) : (
+              <Button type="submit" loading={isSubmitting} icon={<Check size={14} />}>
+                Submit survey
+              </Button>
+            )}
           </div>
-        </Card>
-
-        {/* Section E */}
-        <Card title="Section E — Career Progression">
-          <div className="space-y-4">
-            <Select label="Have you changed jobs after graduation?" options={[{value:"true",label:"Yes"},{value:"false",label:"No"}]} placeholder="Select" {...register("has_changed_jobs")} />
-            <Textarea label="Previous designations" {...register("previous_designations")} />
-            <Textarea label="Skills acquired after graduation" {...register("skills_acquired_after_graduation")} />
-            <Textarea label="Certifications completed" {...register("certifications_completed")} />
-            <Input label="Career Growth Satisfaction (1–5)" type="number" min={1} max={5} {...register("career_growth_satisfaction")} />
-          </div>
-        </Card>
-
-        {/* Section F */}
-        <Card title="Section F — Placement & Readiness">
-          <div className="space-y-4">
-            <Textarea label="How did you prepare for job placement?" {...register("placement_preparation")} />
-            <Textarea label="Most helpful platforms / resources" {...register("helpful_platforms")} />
-            <Select label="Did placement training programs help?" options={[{value:"Yes",label:"Yes"},{value:"Partially",label:"Partially"},{value:"No",label:"No"}]} placeholder="Select" {...register("placement_training_helped")} />
-            <Textarea label="Difficulties faced while searching for job" {...register("job_search_difficulties")} />
-            <Textarea label="Suggestions to improve student job readiness" {...register("suggestions_for_improvement")} />
-          </div>
-        </Card>
-
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-        <Button type="submit" loading={isSubmitting} className="w-full">Submit Survey</Button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,17 +1,29 @@
-import { Sidebar } from "@/components/layout/Sidebar";
-import { BarChart2, MessageSquare, Clock } from "lucide-react";
+"use client";
 
-const navItems = [
-  { href: "/faculty/co-attainment", label: "CO Attainment", icon: <BarChart2 size={18} /> },
-  { href: "/faculty/feedback", label: "Course Feedback", icon: <MessageSquare size={18} /> },
-  { href: "/faculty/history", label: "History", icon: <Clock size={18} /> },
+import { usePathname } from "next/navigation";
+import { Shell } from "@/components/layout/Shell";
+import { NavGroup } from "@/components/layout/Sidebar";
+import { BarChart3, Lightbulb, History } from "lucide-react";
+
+const groups: NavGroup[] = [
+  {
+    title: "Faculty",
+    items: [
+      { href: "/faculty/co-attainment", label: "CO attainment",   icon: <BarChart3 size={17} strokeWidth={1.6} /> },
+      { href: "/faculty/feedback",      label: "Course feedback", icon: <Lightbulb size={17} strokeWidth={1.6} /> },
+      { href: "/faculty/history",       label: "My submissions",  icon: <History size={17} strokeWidth={1.6} /> },
+    ],
+  },
 ];
 
+const labels: Record<string, string[]> = {
+  "/faculty/co-attainment": ["CO attainment"],
+  "/faculty/feedback":      ["Course feedback"],
+  "/faculty/history":       ["My submissions"],
+};
+
 export default function FacultyLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar navItems={navItems} title="Faculty Portal" />
-      <main className="flex-1 bg-slate-50 p-8 overflow-auto">{children}</main>
-    </div>
-  );
+  const pathname = usePathname();
+  const crumbs = ["Faculty portal", ...(labels[pathname] || ["—"])];
+  return <Shell groups={groups} crumbs={crumbs}>{children}</Shell>;
 }

@@ -1,158 +1,200 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { useState } from "react";
+import { Select } from "@/components/ui/Select";
+import { Badge } from "@/components/ui/Badge";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ProgressBar, tierColor } from "@/components/ui/Stat";
+import { Filter, Plus, MoreHorizontal } from "lucide-react";
 
 export default function CoursesPage() {
   const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [courseCode, setCourseCode] = useState("");
-  const [courseName, setCourseName] = useState("");
-  const [semester, setSemester] = useState("");
-  const [credits, setCredits] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({ course_code: "", course_name: "", semester: "", credits: "" });
 
-  const { data: courses, isLoading: loadingCourses } = useQuery({
+  const { data: courses, isLoading } = useQuery({
     queryKey: ["courses"],
     queryFn: () => api.get("/api/v1/courses").then((r) => r.data),
   });
 
-  const { data: relevanceScores } = useQuery({
+  const { data: relevance } = useQuery({
     queryKey: ["relevance-scores"],
     queryFn: () => api.get("/api/v1/analytics/relevance").then((r) => r.data),
   });
 
-  const addCourseMutation = useMutation({
-    mutationFn: (newCourse: any) => api.post("/api/v1/courses", newCourse).then((r) => r.data),
+  const addMutation = useMutation({
+    mutationFn: (payload: any) => api.post("/api/v1/courses", payload).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["courses"] });
-      setIsModalOpen(false);
-      setCourseCode("");
-      setCourseName("");
-      setSemester("");
-      setCredits("");
+      setModalOpen(false);
+      setForm({ course_code: "", course_name: "", semester: "", credits: "" });
     },
   });
 
-  const handleAddCourse = (e: React.FormEvent) => {
-    e.preventDefault();
-    addCourseMutation.mutate({
-      course_code: courseCode,
-      course_name: courseName,
-      semester: semester ? parseInt(semester) : null,
-      credits: credits ? parseInt(credits) : null,
-    });
-  };
+  if (isLoading) return <div className="page page-wide"><LoadingSpinner /></div>;
 
-  if (loadingCourses) return <LoadingSpinner />;
+  const scoreMap = new Map((relevance || []).map((r: any) => [r.course_id, r.relevance_score]));
 
-  const scoreMap = new Map(
-    (relevanceScores || []).map((r: any) => [r.course_id, r])
-  );
+  // Group by semester
+  const semGroups = new Map<string, any[]>();
+  (courses || []).forEach((c: any) => {
+    const k = c.semester ? `Semester ${c.semester}` : "Unassigned";
+    if (!semGroups.has(k)) semGroups.set(k, []);
+    semGroups.get(k)!.push(c);
+  });
+  const sems = Array.from(semGroups.entries()).sort(([a], [b]) => a.localeCompare(b));
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Courses</h1>
-        <Button onClick={() => setIsModalOpen(true)}>Add Course</Button>
+    <div className="page page-wide">
+      <div className="page-head">
+        <div>
+          <span className="eyebrow">Curriculum · course catalogue</span>
+          <h1 className="serif">All {courses?.length || 0} courses, grouped by semester.</h1>
+          <p className="lede">
+            Every course on file, with its current relevance score where one has been computed.
+            Add a new course or click any row to open its syllabus history.
+          </p>
+        </div>
+        <div className="actions">
+          <Button variant="ghost" icon={<Filter size={14} />}>Filter</Button>
+          <Button icon={<Plus size={14} />} onClick={() => setModalOpen(true)}>Add course</Button>
+        </div>
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Course</h2>
-            <form onSubmit={handleAddCourse} className="space-y-4">
-              <Input
-                label="Course Code"
-                value={courseCode}
-                onChange={(e) => setCourseCode(e.target.value)}
-                required
-              />
-              <Input
-                label="Course Name"
-                value={courseName}
-                onChange={(e) => setCourseName(e.target.value)}
-                required
-              />
-              <Input
-                label="Semester"
-                type="number"
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-              />
-              <Input
-                label="Credits"
-                type="number"
-                value={credits}
-                onChange={(e) => setCredits(e.target.value)}
-              />
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" loading={addCourseMutation.isPending}>
-                  Save Course
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {(!courses || courses.length === 0) ? (
+      {sems.length === 0 ? (
         <Card>
-          <p className="text-center text-gray-500 py-8">No courses found. Add courses to get started.</p>
+          <p style={{ textAlign: "center", color: "var(--ink-3)", padding: 32 }}>No courses on file yet.</p>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {courses.map((course: any) => {
-            const score = scoreMap.get(course.id);
-            const relevance = score?.relevance_score;
-            return (
-              <Card key={course.id}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">
-                        {course.course_code}
-                      </span>
-                      <h3 className="font-semibold text-gray-900">{course.course_name}</h3>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Semester {course.semester} · {course.credits} credits
-                    </p>
-                  </div>
-                  {relevance !== undefined && (
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Relevance Score</p>
-                      <p className={`text-2xl font-bold ${relevance >= 0.7 ? "text-green-600" : relevance >= 0.5 ? "text-yellow-600" : "text-red-600"}`}>
-                        {relevance.toFixed(2)}
-                      </p>
-                    </div>
-                  )}
+        sems.map(([sem, rows]) => {
+          const totalCredits = rows.reduce((s: number, r: any) => s + (r.credits || 0), 0);
+          return (
+            <Card key={sem} padded={false} className="semester-card">
+              <header className="semester-head">
+                <div>
+                  <h3 className="serif semester-name">{sem}</h3>
+                  <span className="mono semester-year">2025-26</span>
                 </div>
-                {relevance !== undefined && (
-                  <div className="mt-3">
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${relevance >= 0.7 ? "bg-green-500" : relevance >= 0.5 ? "bg-yellow-500" : "bg-red-500"}`}
-                        style={{ width: `${Math.round(relevance * 100)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between mt-1 text-xs text-gray-400">
-                      <span>Alumni match: {((score?.skill_match_score || 0) * 100).toFixed(0)}%</span>
-                      <span>Alumni avg rating: {((score?.alumni_relevance_avg || 0) * 4 + 1).toFixed(1)}/5</span>
-                    </div>
+                <div className="semester-stats">
+                  <span><b>{rows.length}</b> courses</span>
+                  <span>·</span>
+                  <span><b>{totalCredits}</b> credits</span>
+                </div>
+              </header>
+              <div className="tbl-wrap">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 170 }}>Code</th>
+                      <th>Course</th>
+                      <th style={{ width: 100, textAlign: "right" }}>Credits</th>
+                      <th style={{ width: 240 }}>Relevance</th>
+                      <th style={{ width: 160, textAlign: "right" }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r: any) => {
+                      const score: any = scoreMap.get(r.id);
+                      return (
+                        <tr key={r.id}>
+                          <td><span className="mono" style={{ color: "var(--ink-2)" }}>{r.course_code}</span></td>
+                          <td><span style={{ fontWeight: 500 }}>{r.course_name}</span></td>
+                          <td style={{ textAlign: "right" }}><span className="mono">{r.credits || "—"}</span></td>
+                          <td>
+                            {score == null ? (
+                              <Badge tone="gray" size="sm">Not yet computed</Badge>
+                            ) : (
+                              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 160 }}>
+                                <ProgressBar value={score} tone={tierColor(score)} height={6} />
+                                <span className="mono" style={{ width: 46, textAlign: "right", color: "var(--ink-2)" }}>
+                                  {score.toFixed(2)}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                              <Button variant="ghost" size="sm">Syllabi</Button>
+                              <Button variant="ghost" size="sm" icon={<MoreHorizontal size={14} />} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          );
+        })
+      )}
+
+      {/* Add course modal */}
+      {modalOpen && (
+        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
+          <div className="modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
+            <header className="modal-head">
+              <h3>Add a new course</h3>
+              <button className="iconbtn" onClick={() => setModalOpen(false)}>✕</button>
+            </header>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addMutation.mutate({
+                  course_code: form.course_code,
+                  course_name: form.course_name,
+                  semester: form.semester ? parseInt(form.semester) : null,
+                  credits: form.credits ? parseInt(form.credits) : null,
+                });
+              }}
+            >
+              <div className="modal-body">
+                <div className="form-grid">
+                  <Input
+                    label="Course code" required
+                    placeholder="TIU-UCS-T504"
+                    hint="Format: TIU-UCS-T###"
+                    value={form.course_code}
+                    onChange={(e) => setForm({ ...form, course_code: e.target.value })}
+                  />
+                  <Input
+                    label="Credits" type="number" required min={1} max={6}
+                    value={form.credits}
+                    onChange={(e) => setForm({ ...form, credits: e.target.value })}
+                  />
+                  <div className="field-span-2">
+                    <Input
+                      label="Course name" required
+                      placeholder="Distributed Systems"
+                      value={form.course_name}
+                      onChange={(e) => setForm({ ...form, course_name: e.target.value })}
+                    />
                   </div>
-                )}
-              </Card>
-            );
-          })}
+                  <Select
+                    label="Semester" required
+                    placeholder="Pick a semester"
+                    options={[1, 2, 3, 4, 5, 6, 7, 8].map((s) => ({ value: String(s), label: `Semester ${s}` }))}
+                    value={form.semester}
+                    onChange={(e) => setForm({ ...form, semester: e.target.value })}
+                  />
+                  <Select
+                    label="Academic year" required
+                    placeholder="Pick year"
+                    options={["2025-26", "2026-27"]}
+                  />
+                </div>
+              </div>
+              <footer className="modal-foot">
+                <Button variant="ghost" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>
+                <Button type="submit" loading={addMutation.isPending}>Add course</Button>
+              </footer>
+            </form>
+          </div>
         </div>
       )}
     </div>

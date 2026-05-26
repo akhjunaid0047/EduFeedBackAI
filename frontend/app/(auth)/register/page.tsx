@@ -10,33 +10,13 @@ import { setTokens } from "@/lib/auth";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { clsx } from "clsx";
+import { ChevronLeft, GraduationCap, Users, Briefcase, Settings, Check } from "lucide-react";
 
 const ROLES = [
-  {
-    value: "alumni",
-    label: "Alumni",
-    description: "Submit career surveys & track your profile",
-    color: "blue",
-  },
-  {
-    value: "faculty",
-    label: "Faculty",
-    description: "Submit CO attainment reports & course feedback",
-    color: "green",
-  },
-  {
-    value: "admin",
-    label: "Admin / HoD",
-    description: "View analytics, manage syllabi, export reports",
-    color: "purple",
-  },
-  {
-    value: "superadmin",
-    label: "Super Admin",
-    description: "All admin access + system settings",
-    color: "orange",
-  },
+  { value: "alumni",     icon: GraduationCap, title: "Alumni",        sub: "Submit a one-time career survey", note: "Most graduates pick this" },
+  { value: "faculty",    icon: Users,         title: "Faculty",       sub: "Submit CO attainment & feedback" },
+  { value: "admin",      icon: Briefcase,     title: "Administrator", sub: "Review analytics & syllabi" },
+  { value: "superadmin", icon: Settings,      title: "Super admin",   sub: "Plus system settings" },
 ] as const;
 
 type RoleValue = (typeof ROLES)[number]["value"];
@@ -51,7 +31,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 const DEPARTMENTS = [
-  { value: "CSE", label: "Computer Science Engineering" },
+  { value: "CSE", label: "Computer Science & Engineering" },
   { value: "IT", label: "Information Technology" },
   { value: "ECE", label: "Electronics & Communication" },
   { value: "ME", label: "Mechanical Engineering" },
@@ -59,20 +39,6 @@ const DEPARTMENTS = [
   { value: "Chemical", label: "Chemical Engineering" },
   { value: "Other", label: "Other" },
 ];
-
-const ROLE_COLORS: Record<string, string> = {
-  blue: "border-blue-500 bg-blue-50 text-blue-700",
-  green: "border-green-500 bg-green-50 text-green-700",
-  purple: "border-purple-500 bg-purple-50 text-purple-700",
-  orange: "border-orange-500 bg-orange-50 text-orange-700",
-};
-
-const ROLE_RING: Record<string, string> = {
-  blue: "ring-blue-500",
-  green: "ring-green-500",
-  purple: "ring-purple-500",
-  orange: "ring-orange-500",
-};
 
 function rolePortal(role: string) {
   if (role === "alumni") return "/alumni/dashboard";
@@ -82,135 +48,118 @@ function rolePortal(role: string) {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<RoleValue>("alumni");
+  const [role, setRole] = useState<RoleValue>("alumni");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, formState: { errors, isSubmitting } } =
+    useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
     setError("");
     try {
-      await api.post("/api/v1/auth/register", { ...data, role: selectedRole });
-      // Auto-login after registration
-      const loginRes = await api.post("/api/v1/auth/login", {
-        email: data.email,
-        password: data.password,
-      });
+      await api.post("/api/v1/auth/register", { ...data, role });
+      const loginRes = await api.post("/api/v1/auth/login", { email: data.email, password: data.password });
       setTokens(loginRes.data.access_token, loginRes.data.refresh_token);
       setSuccess(true);
-      setTimeout(() => router.push(rolePortal(selectedRole)), 1000);
+      setTimeout(() => router.push(rolePortal(role)), 900);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Registration failed.");
     }
   };
 
-  const activeRole = ROLES.find((r) => r.value === selectedRole)!;
-
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-md w-full">
-          <div className="text-green-600 text-5xl mb-3">✓</div>
-          <h2 className="text-xl font-semibold text-gray-900">Account Created!</h2>
-          <p className="text-gray-500 mt-2 text-sm">
-            Redirecting to your {activeRole.label} portal…
-          </p>
-        </div>
+      <div className="auth single">
+        <main className="auth-form">
+          <div className="auth-form-inner" style={{ textAlign: "center" }}>
+            <span className="eyebrow mono">Welcome</span>
+            <h1 className="serif auth-title">Account created.</h1>
+            <p className="auth-lede">Redirecting to your portal…</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 py-8 px-4">
-      <div className="w-full max-w-lg">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Create Account</h1>
-          <p className="text-sm text-gray-500 mb-6">EduFeedback AI — choose your role to get started</p>
+    <div className="auth single">
+      <main className="auth-form auth-form-wide">
+        <button className="auth-back link" onClick={() => router.push("/login")}>
+          <ChevronLeft size={14} /> Back to sign in
+        </button>
 
-          {/* Role selector */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {ROLES.map((role) => (
-              <button
-                key={role.value}
-                type="button"
-                onClick={() => setSelectedRole(role.value)}
-                className={clsx(
-                  "text-left rounded-xl border-2 px-4 py-3 transition-all",
-                  "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                  ROLE_RING[role.color],
-                  selectedRole === role.value
-                    ? `${ROLE_COLORS[role.color]} border-current`
-                    : "border-gray-200 hover:border-gray-300 bg-white text-gray-700"
-                )}
-              >
-                <p className="font-semibold text-sm">{role.label}</p>
-                <p className={clsx(
-                  "text-xs mt-0.5",
-                  selectedRole === role.value ? "opacity-80" : "text-gray-400"
-                )}>
-                  {role.description}
-                </p>
-              </button>
-            ))}
+        <div className="auth-form-inner auth-form-inner-wide">
+          <span className="eyebrow mono">Create account</span>
+          <h1 className="serif auth-title">Request access.</h1>
+          <p className="auth-lede">
+            Pick the role that matches how you'll use EduFeedback. Your dean will approve
+            the request within one working day.
+          </p>
+
+          <SectionHead title="I am a…" />
+          <div className="role-grid">
+            {ROLES.map((r) => {
+              const Ico = r.icon;
+              const active = role === r.value;
+              return (
+                <button
+                  key={r.value}
+                  type="button"
+                  className={`role-card ${active ? "is-active" : ""}`}
+                  onClick={() => setRole(r.value)}
+                >
+                  <span className="role-card-icon"><Ico size={20} /></span>
+                  <span className="role-card-title">{r.title}</span>
+                  <span className="role-card-sub">{r.sub}</span>
+                  {r.note && <span className="role-card-note">{r.note}</span>}
+                  <span className="role-card-check"><Check size={12} /></span>
+                </button>
+              );
+            })}
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input
-              label="Full Name"
-              {...register("full_name")}
-              error={errors.full_name?.message}
-            />
-            <Input
-              label="Email"
-              type="email"
-              {...register("email")}
-              error={errors.email?.message}
-            />
-            <Input
-              label="Password"
-              type="password"
-              {...register("password")}
-              error={errors.password?.message}
-            />
-
-            {/* Alumni-only fields */}
-            {selectedRole === "alumni" && (
-              <>
-                <Select
-                  label="Department"
-                  options={DEPARTMENTS}
-                  placeholder="Select department"
-                  {...register("department")}
-                />
-                <Input
-                  label="Graduation Year"
-                  type="number"
-                  placeholder="e.g. 2022"
-                  {...register("graduation_year")}
-                />
-              </>
-            )}
+          <SectionHead title="Tell us about yourself" />
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="form-grid">
+              <Input label="Full name" required placeholder="Aritra Banerjee" {...register("full_name")} error={errors.full_name?.message} />
+              <Input label="Email" type="email" required placeholder="you@institution.edu" {...register("email")} error={errors.email?.message} />
+              <Input label="Password" type="password" required placeholder="At least 6 characters" {...register("password")} error={errors.password?.message} />
+              {role === "alumni" && (
+                <>
+                  <Select label="Department" required options={DEPARTMENTS} placeholder="Select department" {...register("department")} />
+                  <Input label="Graduation year" type="number" required placeholder="e.g. 2022" {...register("graduation_year")} />
+                </>
+              )}
+            </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <div style={{
+                borderLeft: "2px solid var(--danger)",
+                background: "var(--danger-soft)",
+                padding: "8px 12px",
+                borderRadius: 4,
+                marginTop: 12,
+              }}>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--danger)" }}>{error}</p>
+              </div>
             )}
 
-            <Button type="submit" loading={isSubmitting} className="w-full">
-              Create {activeRole.label} Account
-            </Button>
+            <div className="auth-actions">
+              <Button type="button" variant="ghost" onClick={() => router.push("/login")}>Cancel</Button>
+              <Button type="submit" loading={isSubmitting}>Request account →</Button>
+            </div>
           </form>
-
-          <p className="mt-4 text-sm text-center text-gray-500">
-            Already have an account?{" "}
-            <a href="/login" className="text-blue-600 hover:underline font-medium">
-              Sign in
-            </a>
-          </p>
         </div>
+      </main>
+    </div>
+  );
+}
+
+function SectionHead({ title }: { title: string }) {
+  return (
+    <div className="section-head" style={{ marginTop: 24, marginBottom: 14 }}>
+      <div>
+        <h2 className="section-title serif">{title}</h2>
       </div>
     </div>
   );

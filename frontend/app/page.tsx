@@ -19,9 +19,14 @@ export default function Home() {
     else router.replace("/login");
   }, [router]);
 
+  // The SplashGate at the root layout has already played for this session;
+  // by the time we reach here we just blank-frame for the redirect tick.
   return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)" }}>
+      <span
+        className="spin"
+        style={{ width: 24, height: 24, display: "inline-block" }}
+      />
     </div>
   );
 }

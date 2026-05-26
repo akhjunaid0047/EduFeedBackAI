@@ -1,26 +1,62 @@
-import { Sidebar } from "@/components/layout/Sidebar";
+"use client";
+
+import { usePathname } from "next/navigation";
+import { Shell } from "@/components/layout/Shell";
+import { NavGroup } from "@/components/layout/Sidebar";
 import {
-  LayoutDashboard, TrendingUp, BookOpen, Lightbulb,
-  FileText, BarChart2, Users, GraduationCap, Settings
+  Home, GitCompareArrows, BookOpen, Lightbulb,
+  Files, GraduationCap, Users, Download, Settings,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/admin/overview", label: "Overview", icon: <LayoutDashboard size={18} /> },
-  { href: "/admin/skill-gaps", label: "Skill Gaps", icon: <TrendingUp size={18} /> },
-  { href: "/admin/courses", label: "Courses", icon: <BookOpen size={18} /> },
-  { href: "/admin/recommendations", label: "Recommendations", icon: <Lightbulb size={18} /> },
-  { href: "/admin/syllabus", label: "Syllabus", icon: <FileText size={18} /> },
-  { href: "/admin/reports", label: "Reports", icon: <BarChart2 size={18} /> },
-  { href: "/admin/alumni", label: "Alumni", icon: <GraduationCap size={18} /> },
-  { href: "/admin/faculty", label: "Faculty", icon: <Users size={18} /> },
-  { href: "/admin/settings", label: "Settings", icon: <Settings size={18} /> },
+const groups: NavGroup[] = [
+  {
+    title: "Curriculum",
+    items: [
+      { href: "/admin/overview",        label: "Overview",         icon: <Home size={17} strokeWidth={1.6} /> },
+      { href: "/admin/skill-gaps",      label: "Skill gaps",       icon: <GitCompareArrows size={17} strokeWidth={1.6} /> },
+      { href: "/admin/courses",         label: "Courses",          icon: <BookOpen size={17} strokeWidth={1.6} /> },
+      { href: "/admin/recommendations", label: "Recommendations",  icon: <Lightbulb size={17} strokeWidth={1.6} /> },
+    ],
+  },
+  {
+    title: "Data",
+    items: [
+      { href: "/admin/syllabus", label: "Syllabi",              icon: <Files size={17} strokeWidth={1.6} /> },
+      { href: "/admin/alumni",   label: "Alumni records",       icon: <GraduationCap size={17} strokeWidth={1.6} /> },
+      { href: "/admin/faculty",  label: "Faculty submissions",  icon: <Users size={17} strokeWidth={1.6} /> },
+      { href: "/admin/reports",  label: "Reports",              icon: <Download size={17} strokeWidth={1.6} /> },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { href: "/admin/settings", label: "Settings", icon: <Settings size={17} strokeWidth={1.6} /> },
+    ],
+  },
 ];
 
+const labels: Record<string, string[]> = {
+  "/admin/overview":        ["Overview"],
+  "/admin/skill-gaps":      ["Skill gaps"],
+  "/admin/courses":         ["Courses"],
+  "/admin/recommendations": ["Recommendations"],
+  "/admin/syllabus":        ["Syllabi"],
+  "/admin/reports":         ["Reports"],
+  "/admin/alumni":          ["Alumni records"],
+  "/admin/faculty":         ["Faculty submissions"],
+  "/admin/settings":        ["Settings"],
+};
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  let suffix = labels[pathname];
+  if (!suffix && pathname.startsWith("/admin/syllabus/")) suffix = ["Syllabi", "Revision diff"];
+  if (!suffix) suffix = ["—"];
+  const crumbs = ["Administrator", ...suffix];
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar navItems={navItems} title="Admin Panel" />
-      <main className="flex-1 bg-slate-50 p-8 overflow-auto">{children}</main>
-    </div>
+    <Shell groups={groups} crumbs={crumbs}>
+      {children}
+    </Shell>
   );
 }
