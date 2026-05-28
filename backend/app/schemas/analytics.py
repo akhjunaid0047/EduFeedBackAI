@@ -55,6 +55,8 @@ class RelevanceScoreResponse(BaseModel):
 class RecommendationResponse(BaseModel):
     id: UUID
     course_id: UUID
+    course_code: Optional[str] = None
+    course_name: Optional[str] = None
     recommendation_type: RecommendationTypeEnum
     target_topic: str
     evidence_summary: Optional[str]

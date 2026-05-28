@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 from app.core.database import get_db
 from app.core.dependencies import require_role
@@ -50,18 +50,4 @@ async def excel_report(
         content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=edufeedback_analytics.xlsx"},
-    )
-
-
-@router.get("/naac")
-async def naac_report(
-    admin: AdminUser,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    # NAAC uses same PDF report format; can be extended with custom formatting
-    pdf_bytes = await report_service.generate_pdf_report(db)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=naac_summary.pdf"},
     )

@@ -6,7 +6,7 @@ import api from "@/lib/api";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { Download, FileText, Sheet, GraduationCap } from "lucide-react";
+import { Download, FileText, Sheet } from "lucide-react";
 
 async function downloadFile(url: string, filename: string) {
   const res = await api.get(url, { responseType: "blob" });
@@ -40,7 +40,7 @@ export default function ReportsPage() {
           <span className="eyebrow">Curriculum · reports</span>
           <h1 className="serif">Export the work, anywhere.</h1>
           <p className="lede">
-            Four ready-to-go formats. Everything is regenerated against the latest analytics run.
+            Three ready-to-go formats. Everything is regenerated against the latest analytics run.
           </p>
         </div>
       </div>
@@ -110,24 +110,6 @@ export default function ReportsPage() {
           </div>
         </Card>
 
-        <Card padded className="report-card">
-          <div className="report-card-icon"><GraduationCap size={22} /></div>
-          <h3 className="serif report-card-title">NAAC / NBA summary</h3>
-          <p className="report-card-sub">
-            Pre-formatted to the NAAC SSR and NBA Tier-1 templates. Employability rate, attainment
-            averages, action-taken table.
-          </p>
-          <div className="report-card-foot">
-            <span className="mono report-card-meta">PDF · NAAC v2.1 + NBA Tier-1</span>
-            <Button
-              icon={<Download size={14} />}
-              loading={downloading === "naac"}
-              onClick={() => handle("naac", "/api/v1/reports/naac", "naac_summary.pdf")}
-            >
-              Generate summary
-            </Button>
-          </div>
-        </Card>
       </div>
     </div>
   );

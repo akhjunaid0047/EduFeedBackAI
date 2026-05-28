@@ -78,15 +78,35 @@ async def get_relevance_scores(db: AsyncSession, course_id=None):
 
 
 async def get_recommendations(db: AsyncSession, course_id=None, status=None):
-    query = select(CurriculumRecommendation).order_by(
-        CurriculumRecommendation.priority_score.desc()
+    query = (
+        select(CurriculumRecommendation, Course.course_code, Course.course_name)
+        .join(Course, Course.id == CurriculumRecommendation.course_id)
+        .order_by(
+            Course.course_code.asc(),
+            CurriculumRecommendation.priority_score.desc(),
+        )
     )
     if course_id:
         query = query.where(CurriculumRecommendation.course_id == course_id)
     if status:
         query = query.where(CurriculumRecommendation.status == status)
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = []
+    for rec, code, name in result.all():
+        rows.append({
+            "id": rec.id,
+            "course_id": rec.course_id,
+            "course_code": code,
+            "course_name": name,
+            "recommendation_type": rec.recommendation_type,
+            "target_topic": rec.target_topic,
+            "evidence_summary": rec.evidence_summary,
+            "priority_score": rec.priority_score,
+            "status": rec.status,
+            "included_in_revision": rec.included_in_revision,
+            "generated_at": rec.generated_at,
+        })
+    return rows
 
 
 async def update_recommendation_status(db: AsyncSession, rec_id, status: str) -> CurriculumRecommendation:

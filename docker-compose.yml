@@ -1,0 +1,94 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: edufeedback_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - edufeedback_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: edufeedback/backend:latest
+    container_name: edufeedback_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # Override REDIS_URL so the container talks to the compose service,
+      # not the dev Supabase/Redis Cloud baked into config.py.
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - uploads:/app/uploads
+      - syllabi:/app/syllabi
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - edufeedback_net
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: edufeedback/backend:latest
+    container_name: edufeedback_celery
+    restart: unless-stopped
+    command: ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "-Q", "default,nlp,revision", "--concurrency=2"]
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+      - syllabi:/app/syllabi
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - edufeedback_net
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    image: edufeedback/frontend:latest
+    container_name: edufeedback_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    networks:
+      - edufeedback_net
+
+networks:
+  edufeedback_net:
+    driver: bridge
+
+volumes:
+  uploads:
+  syllabi:
+  redis_data:

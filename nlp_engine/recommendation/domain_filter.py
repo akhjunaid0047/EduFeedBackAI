@@ -13,7 +13,13 @@ through unchanged — their rules don't suffer from the same domain confusion.
 Provider switch: set LLM_PROVIDER=openai (default, active) or anthropic
 (currently kept for future use; the code path exists but is only taken when
 the env var is set explicitly).
+
+Caching: successful filter results are cached in Redis (key includes course
+code, syllabus outline hash, and sorted candidate list) for 7 days. This
+eliminates duplicate LLM spend across re-runs when the same course/candidate
+combination appears. Bumps to CACHE_VERSION invalidate the cache.
 """
+import hashlib
 import json
 import logging
 from typing import Optional
@@ -23,6 +29,42 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 _MAX_TOPICS_PER_UNIT = 8  # cap to keep prompts short and predictable
+
+# Bump when SYSTEM_PROMPT or the underlying model semantics change in a way
+# that would make older cached results invalid.
+CACHE_VERSION = "v1"
+CACHE_TTL_SECONDS = 7 * 24 * 3600
+
+_redis_client = None
+
+
+def _get_redis():
+    """Lazy singleton. Returns None if Redis is unreachable so callers fail open."""
+    global _redis_client
+    if _redis_client is False:  # sentinel: previously failed to connect
+        return None
+    if _redis_client is None:
+        try:
+            import redis
+            client = redis.Redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
+            client.ping()
+            _redis_client = client
+        except Exception:
+            logger.warning("Domain filter cache: Redis unreachable, running without cache")
+            _redis_client = False
+            return None
+    return _redis_client
+
+
+def _cache_key(course_code: str, syllabus_outline: str, candidate_names: list[str]) -> str:
+    payload = syllabus_outline + "||" + "|".join(sorted(c.lower() for c in candidate_names))
+    digest = hashlib.md5(payload.encode("utf-8")).hexdigest()
+    return f"domain_filter:{CACHE_VERSION}:{course_code}:{digest}"
 
 SYSTEM_PROMPT = (
     "You are a curriculum design assistant. Given a course syllabus and a list "
@@ -74,7 +116,8 @@ def filter_by_domain(
     provider_name = (provider or settings.LLM_PROVIDER or "openai").lower()
 
     syllabus_outline = _format_syllabus_outline(syllabus_structure)
-    candidate_list = "\n".join(f"- {c['target_topic']}" for c in add_candidates)
+    candidate_names = [c["target_topic"] for c in add_candidates]
+    candidate_list = "\n".join(f"- {c}" for c in candidate_names)
     user_prompt = USER_TEMPLATE.format(
         course_code=course_code,
         course_name=course_name or "",
@@ -82,23 +125,45 @@ def filter_by_domain(
         candidate_list=candidate_list,
     )
 
-    try:
-        if provider_name == "openai":
-            kept = _filter_with_openai(SYSTEM_PROMPT, user_prompt)
-        elif provider_name == "anthropic":
-            kept = _filter_with_anthropic(SYSTEM_PROMPT, user_prompt)
-        else:
-            logger.warning(
-                "Unknown LLM_PROVIDER=%r, skipping domain filter for course %s",
-                provider_name, course_code,
+    # Cache lookup — same course+syllabus+candidates → cached LLM result.
+    cache_key = _cache_key(course_code, syllabus_outline, candidate_names)
+    redis_client = _get_redis()
+    kept: Optional[list[str]] = None
+    cache_hit = False
+    if redis_client is not None:
+        try:
+            cached = redis_client.get(cache_key)
+            if cached:
+                kept = json.loads(cached)
+                cache_hit = True
+        except Exception:
+            logger.warning("Domain filter cache read failed for course %s", course_code)
+
+    if kept is None:
+        try:
+            if provider_name == "openai":
+                kept = _filter_with_openai(SYSTEM_PROMPT, user_prompt)
+            elif provider_name == "anthropic":
+                kept = _filter_with_anthropic(SYSTEM_PROMPT, user_prompt)
+            else:
+                logger.warning(
+                    "Unknown LLM_PROVIDER=%r, skipping domain filter for course %s",
+                    provider_name, course_code,
+                )
+                return recommendations
+        except Exception:
+            logger.exception(
+                "Domain filter LLM call failed for course %s; keeping all candidates",
+                course_code,
             )
             return recommendations
-    except Exception:
-        logger.exception(
-            "Domain filter LLM call failed for course %s; keeping all candidates",
-            course_code,
-        )
-        return recommendations
+
+        # Cache successful result. Never cache on failure path above.
+        if redis_client is not None:
+            try:
+                redis_client.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(kept))
+            except Exception:
+                logger.warning("Domain filter cache write failed for course %s", course_code)
 
     kept_lower = {s.strip().lower() for s in kept}
     filtered: list[dict] = []
@@ -116,8 +181,9 @@ def filter_by_domain(
             )
 
     logger.info(
-        "Domain filter [%s] course=%s: %d ADD → %d kept (%d rejected)",
-        provider_name, course_code,
+        "Domain filter [%s%s] course=%s: %d ADD → %d kept (%d rejected)",
+        provider_name, " cached" if cache_hit else "",
+        course_code,
         len(add_candidates), len(add_candidates) - rejected_count, rejected_count,
     )
     return filtered

@@ -1,7 +1,8 @@
 import numpy as np
 
-GAP_THRESHOLD = 0.40
-MIN_DEMAND_PCT = 0.10
+# Defaults — overridden per-run by institution_settings (see tasks.run_full_analytics)
+DEFAULT_GAP_THRESHOLD = 0.40
+DEFAULT_MIN_DEMAND_PCT = 0.10
 RECENCY_WEIGHT_BOOST = 1.5
 
 
@@ -12,9 +13,13 @@ def calculate_skill_gaps(
     alumni_mention_counts: dict[str, int],
     total_alumni: int,
     recent_skill_names: set[str],
+    gap_threshold: float = DEFAULT_GAP_THRESHOLD,
+    min_demand_pct: float = DEFAULT_MIN_DEMAND_PCT,
 ) -> list[dict]:
     """
     Returns list of skill gap records per (skill, course).
+    `total_alumni` is the denominator for mention_pct — should be the count of
+    alumni who provided any skill data (responsive base), not raw row count.
     """
     results = []
     for i, skill in enumerate(skill_names):
@@ -26,7 +31,7 @@ def calculate_skill_gaps(
         mention_count = alumni_mention_counts.get(skill, 0)
         mention_pct = mention_count / total_alumni if total_alumni > 0 else 0.0
         is_post_grad = skill in recent_skill_names
-        gap_flag = best_sim < GAP_THRESHOLD and mention_pct >= MIN_DEMAND_PCT
+        gap_flag = best_sim < gap_threshold and mention_pct >= min_demand_pct
 
         results.append({
             "skill_name": skill,
